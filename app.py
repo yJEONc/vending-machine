@@ -1,6 +1,5 @@
-
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from io import BytesIO
@@ -8,12 +7,22 @@ from pypdf import PdfReader, PdfWriter
 import os, datetime
 
 app = FastAPI()
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
+# ✅ 정적 파일은 /static으로 mount (더 이상 "/"에 mount하지 않음)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# ✅ 루트로 들어오면 index.html 직접 반환
+@app.get("/")
+def root_page():
+    return FileResponse("static/index.html")
 
 DATA_ROOT = "data"
 
 @app.get("/api/grades")
 async def get_grades():
+    # data 폴더 하위의 디렉터리들을 학년 목록으로 노출
+    if not os.path.exists(DATA_ROOT):
+        return []
     grades = []
     for name in os.listdir(DATA_ROOT):
         path = os.path.join(DATA_ROOT, name)
@@ -37,11 +46,13 @@ class CompilePayload(BaseModel):
 @app.post("/api/compile")
 async def compile_pdfs(payload: CompilePayload):
     grade = payload.grade
-    selected_files = payload.files
+    selected_files = payload.files or []
     folder = os.path.join(DATA_ROOT, grade)
 
     if not os.path.exists(folder):
         raise HTTPException(status_code=404, detail="해당 학년 폴더가 없습니다.")
+    if not selected_files:
+        raise HTTPException(status_code=400, detail="선택된 파일이 없습니다.")
 
     writer = PdfWriter()
     added = 0
