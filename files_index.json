@@ -1,0 +1,75 @@
+{
+  "grades": [
+    {
+      "id": "grade1",
+      "label": "고1"
+    },
+    {
+      "id": "grade2",
+      "label": "고2"
+    },
+    {
+      "id": "grade3",
+      "label": "고3"
+    }
+  ],
+  "scopes": {
+    "grade1": [
+      {
+        "id": "ch1",
+        "label": "1단원 벡터"
+      },
+      {
+        "id": "ch2",
+        "label": "2단원 운동"
+      },
+      {
+        "id": "ch3",
+        "label": "3단원 역학에너지"
+      }
+    ],
+    "grade2": [
+      {
+        "id": "em1",
+        "label": "전자기 - 정전기"
+      },
+      {
+        "id": "em2",
+        "label": "전자기 - 자기장"
+      }
+    ],
+    "grade3": []
+  },
+  "files": [
+    {
+      "grade": "grade1",
+      "scope": "ch1",
+      "path": "data/grade1/ch1_vectors.pdf",
+      "order": 1
+    },
+    {
+      "grade": "grade1",
+      "scope": "ch2",
+      "path": "data/grade1/ch2_kinematics.pdf",
+      "order": 2
+    },
+    {
+      "grade": "grade1",
+      "scope": "ch3",
+      "path": "data/grade1/ch3_energy.pdf",
+      "order": 3
+    },
+    {
+      "grade": "grade2",
+      "scope": "em1",
+      "path": "data/grade2/em1_electrostatics.pdf",
+      "order": 1
+    },
+    {
+      "grade": "grade2",
+      "scope": "em2",
+      "path": "data/grade2/em2_magnetism.pdf",
+      "order": 2
+    }
+  ]
+}
