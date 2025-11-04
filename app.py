@@ -1,65 +1,67 @@
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse, FileResponse, HTMLResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from io import BytesIO
 from pypdf import PdfReader, PdfWriter
-import json, os, datetime
+import os, datetime
 
 app = FastAPI()
-
-# Static files
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
-# Load index
-with open("files_index.json", "r", encoding="utf-8") as f:
-    INDEX = json.load(f)
+DATA_ROOT = "data"
 
 @app.get("/api/grades")
 async def get_grades():
-    return INDEX["grades"]
+    grades = []
+    for name in os.listdir(DATA_ROOT):
+        path = os.path.join(DATA_ROOT, name)
+        if os.path.isdir(path):
+            grades.append({"id": name, "label": name})
+    return grades
 
-@app.get("/api/scopes")
-async def get_scopes(grade: str):
-    return INDEX["scopes"].get(grade, [])
+@app.get("/api/files")
+async def list_files(grade: str):
+    folder = os.path.join(DATA_ROOT, grade)
+    if not os.path.exists(folder):
+        raise HTTPException(status_code=404, detail="폴더를 찾을 수 없습니다.")
+    pdfs = [f for f in os.listdir(folder) if f.lower().endswith(".pdf")]
+    pdfs.sort()
+    return [{"filename": f} for f in pdfs]
 
 class CompilePayload(BaseModel):
     grade: str
-    scopes: list[str]
+    files: list[str]
 
 @app.post("/api/compile")
 async def compile_pdfs(payload: CompilePayload):
     grade = payload.grade
-    scopes = payload.scopes or []
-    if not grade or not scopes:
-        raise HTTPException(status_code=400, detail="grade와 scopes가 필요합니다.")
+    selected_files = payload.files
+    folder = os.path.join(DATA_ROOT, grade)
 
-    candidates = [f for f in INDEX["files"] if f["grade"] == grade and f["scope"] in scopes]
-    scope_order = {s["id"]: i for i, s in enumerate(INDEX["scopes"].get(grade, []))}
-    candidates.sort(key=lambda x: (scope_order.get(x["scope"], 9999), x.get("order", 9999), x["path"]))
-
-    if not candidates:
-        raise HTTPException(status_code=404, detail="해당 조건에 맞는 파일이 없습니다.")
+    if not os.path.exists(folder):
+        raise HTTPException(status_code=404, detail="해당 학년 폴더가 없습니다.")
 
     writer = PdfWriter()
-    for item in candidates:
-        path = item["path"]
+    added = 0
+    for fname in selected_files:
+        path = os.path.join(folder, fname)
         if not os.path.exists(path):
-            raise HTTPException(status_code=404, detail=f"파일을 찾을 수 없습니다: {path}")
+            continue
         reader = PdfReader(path)
         for page in reader.pages:
             writer.add_page(page)
+        added += 1
+
+    if added == 0:
+        raise HTTPException(status_code=400, detail="병합할 PDF를 찾을 수 없습니다.")
 
     output = BytesIO()
     writer.write(output)
     output.seek(0)
 
-    ts = datetime.datetime.now().strftime("%Y%m%d")
-    scopes_part = "-".join(scopes)
-    filename = f"{grade}_{scopes_part}_{ts}.pdf"
-
-    headers = {
-        "Content-Disposition": f'attachment; filename="{filename}"'
-    }
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{grade}_merged_{ts}.pdf"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
     return StreamingResponse(output, media_type="application/pdf", headers=headers)

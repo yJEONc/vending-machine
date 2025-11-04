@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>시험범위 PDF 합치기</title>
+  <title>PDF 파일 선택 병합</title>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; }
     h1 { font-size: 1.5rem; margin-bottom: 16px; }
@@ -20,27 +20,26 @@
   </style>
 </head>
 <body>
-  <h1>학년·시험범위 선택 → PDF 합치기</h1>
+  <h1>PDF 파일 선택 병합</h1>
 
   <div class="box">
     <div class="row">
-      <label for="gradeSelect"><strong>학년 선택</strong></label>
+      <label for="gradeSelect"><strong>폴더(학년) 선택</strong></label>
       <select id="gradeSelect"></select>
-      <span id="gradeInfo" class="muted"></span>
     </div>
   </div>
 
   <div class="box">
     <div class="row">
-      <strong>시험범위</strong>
-      <span id="scopeInfo" class="muted">학년을 먼저 선택하세요.</span>
+      <strong>파일 목록</strong>
+      <span id="scopeInfo" class="muted">폴더를 먼저 선택하세요.</span>
     </div>
     <div id="scopes" class="chips"></div>
   </div>
 
   <div class="box">
     <div class="row">
-      <button id="downloadBtn" class="primary" disabled>선택한 범위 PDF 합치기</button>
+      <button id="downloadBtn" class="primary" disabled>선택한 PDF 합치기</button>
       <span id="status" class="muted"></span>
     </div>
     <div id="error" class="error"></div>
@@ -48,14 +47,11 @@
 
 <script>
 const gradeSelect = document.getElementById('gradeSelect');
-const gradeInfo   = document.getElementById('gradeInfo');
 const scopesWrap  = document.getElementById('scopes');
 const scopeInfo   = document.getElementById('scopeInfo');
 const downloadBtn = document.getElementById('downloadBtn');
 const statusEl    = document.getElementById('status');
 const errorEl     = document.getElementById('error');
-
-let currentScopes = [];
 
 async function fetchJSON(url) {
   const res = await fetch(url);
@@ -67,50 +63,44 @@ async function initGrades() {
   try {
     const grades = await fetchJSON('/api/grades');
     gradeSelect.innerHTML = grades.map(g => `<option value="${g.id}">${g.label}</option>`).join('');
-    gradeInfo.textContent = '';
-    await loadScopes();
+    await loadFiles();
   } catch (e) {
-    errorEl.textContent = '학년 정보를 불러오지 못했습니다.';
+    errorEl.textContent = '폴더 목록을 불러오지 못했습니다.';
   }
 }
 
-async function loadScopes() {
+async function loadFiles() {
   scopesWrap.innerHTML = '';
-  scopeInfo.textContent = '시험범위를 선택하세요.';
+  scopeInfo.textContent = 'PDF 파일을 선택하세요.';
   errorEl.textContent = '';
   statusEl.textContent = '';
 
   const grade = gradeSelect.value;
   try {
-    const scopes = await fetchJSON(`/api/scopes?grade=${encodeURIComponent(grade)}`);
-    currentScopes = scopes;
-    if (scopes.length === 0) {
-      scopeInfo.textContent = '해당 학년의 시험범위가 없습니다.';
+    const files = await fetchJSON(`/api/files?grade=${encodeURIComponent(grade)}`);
+    if (files.length === 0) {
+      scopeInfo.textContent = '이 폴더에 PDF 파일이 없습니다.';
       downloadBtn.disabled = true;
       return;
     }
-    scopesWrap.innerHTML = scopes.map(s => `
+    scopesWrap.innerHTML = files.map(f => `
       <label class="chip">
-        <input type="checkbox" name="scope" value="${s.id}" /> ${s.label}
+        <input type="checkbox" name="file" value="${f.filename}" /> ${f.filename}
       </label>
     `).join('');
     downloadBtn.disabled = true;
 
-    scopesWrap.addEventListener('change', onScopeChange, { once: true });
+    scopesWrap.addEventListener('change', () => {
+      const selected = getSelectedFiles();
+      downloadBtn.disabled = selected.length === 0;
+    });
   } catch (e) {
-    errorEl.textContent = '시험범위를 불러오지 못했습니다.';
+    errorEl.textContent = 'PDF 목록을 불러오지 못했습니다.';
   }
 }
 
-function onScopeChange() {
-  scopesWrap.addEventListener('change', () => {
-    const selected = getSelectedScopes();
-    downloadBtn.disabled = selected.length === 0;
-  });
-}
-
-function getSelectedScopes() {
-  return Array.from(document.querySelectorAll('input[name="scope"]:checked')).map(el => el.value);
+function getSelectedFiles() {
+  return Array.from(document.querySelectorAll('input[name="file"]:checked')).map(el => el.value);
 }
 
 async function compileAndDownload() {
@@ -120,13 +110,8 @@ async function compileAndDownload() {
 
   const payload = {
     grade: gradeSelect.value,
-    scopes: getSelectedScopes()
+    files: getSelectedFiles()
   };
-  if (payload.scopes.length === 0) {
-    statusEl.textContent = '';
-    downloadBtn.disabled = false;
-    return;
-  }
 
   try {
     const res = await fetch('/api/compile', {
@@ -136,7 +121,7 @@ async function compileAndDownload() {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || err.error || '병합에 실패했습니다.');
+      throw new Error(err.detail || '병합 실패');
     }
     const blob = await res.blob();
     const disposition = res.headers.get('Content-Disposition') || '';
@@ -160,7 +145,7 @@ async function compileAndDownload() {
   }
 }
 
-gradeSelect.addEventListener('change', loadScopes);
+gradeSelect.addEventListener('change', loadFiles);
 downloadBtn.addEventListener('click', compileAndDownload);
 initGrades();
 </script>
