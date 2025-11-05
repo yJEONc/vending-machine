@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -8,10 +9,8 @@ import os, datetime
 
 app = FastAPI()
 
-# ✅ 정적 파일은 /static으로 mount (더 이상 "/"에 mount하지 않음)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# ✅ 루트로 들어오면 index.html 직접 반환
 @app.get("/")
 def root_page():
     return FileResponse("static/index.html")
@@ -20,7 +19,6 @@ DATA_ROOT = "data"
 
 @app.get("/api/grades")
 async def get_grades():
-    # data 폴더 하위의 디렉터리들을 학년 목록으로 노출
     if not os.path.exists(DATA_ROOT):
         return []
     grades = []
@@ -42,6 +40,7 @@ async def list_files(grade: str):
 class CompilePayload(BaseModel):
     grade: str
     files: list[str]
+    filename: str | None = None
 
 @app.post("/api/compile")
 async def compile_pdfs(payload: CompilePayload):
@@ -73,6 +72,6 @@ async def compile_pdfs(payload: CompilePayload):
     output.seek(0)
 
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{grade}_merged_{ts}.pdf"
+    filename = payload.filename or f"{grade}_merged_{ts}.pdf"
     headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
     return StreamingResponse(output, media_type="application/pdf", headers=headers)

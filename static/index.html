@@ -17,6 +17,7 @@
     .chip { border: 1px solid #ccc; padding: 6px 10px; border-radius: 999px; }
     .error { color: #b00020; margin-top: 8px; }
     .muted { color: #666; font-size: 0.9rem; }
+    input[type="text"] { flex:1; padding:8px; border-radius:6px; border:1px solid #ccc; }
   </style>
 </head>
 <body>
@@ -38,6 +39,10 @@
   </div>
 
   <div class="box">
+    <div class="row">
+      <label><strong>출력 파일명</strong></label>
+      <input id="outputName" type="text" placeholder="예: 11월_물리1_중간범위.pdf">
+    </div>
     <div class="row">
       <button id="downloadBtn" class="primary" disabled>선택한 PDF 합치기</button>
       <span id="status" class="muted"></span>
@@ -110,7 +115,8 @@ async function compileAndDownload() {
 
   const payload = {
     grade: gradeSelect.value,
-    files: getSelectedFiles()
+    files: getSelectedFiles(),
+    filename: document.getElementById('outputName').value.trim() || null
   };
 
   try {
