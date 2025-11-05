@@ -80,7 +80,7 @@ async def compile_pdfs(payload: CompilePayload):
         base += '.pdf'
 
     safe = base.encode('utf-8').decode('latin-1', 'ignore')
-    headers = {"Content-Disposition": f"attachment; filename="{safe}"'}
+    headers = {'Content-Disposition': f"attachment; filename='{safe}'"}
     return StreamingResponse(buf, media_type="application/pdf", headers=headers)
 
 if __name__ == "__main__":
