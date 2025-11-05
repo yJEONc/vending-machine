@@ -100,3 +100,9 @@ async def compile_pdfs(payload: CompilePayload):
     headers = {"Content-Disposition": content_disposition}
 
     return StreamingResponse(output, media_type="application/pdf", headers=headers)
+
+if __name__ == "__main__":
+    import uvicorn, os
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("app:app", host="0.0.0.0", port=port)
+
