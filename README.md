@@ -1,1 +1,1 @@
-# PDF 병합 서버 (한글 완전 호환 버전)\nRender에서 바로 실행 가능
+# PDF merge server (ASCII safe version for Render)

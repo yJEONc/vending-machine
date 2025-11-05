@@ -32,7 +32,7 @@ async def get_grades():
 async def list_files(grade: str):
     folder = os.path.join(DATA_ROOT, grade)
     if not os.path.exists(folder):
-        raise HTTPException(status_code=404, detail="폴더를 찾을 수 없습니다.")
+        raise HTTPException(status_code=404, detail="Folder not found.")
     pdfs = [f for f in os.listdir(folder) if f.lower().endswith(".pdf")]
     pdfs.sort()
     return [{"filename": f} for f in pdfs]
@@ -49,9 +49,9 @@ async def compile_pdfs(payload: CompilePayload):
     folder = os.path.join(DATA_ROOT, grade)
 
     if not os.path.exists(folder):
-        raise HTTPException(status_code=404, detail="해당 학년 폴더가 없습니다.")
+        raise HTTPException(status_code=404, detail="Target folder not found.")
     if not selected_files:
-        raise HTTPException(status_code=400, detail="선택된 파일이 없습니다.")
+        raise HTTPException(status_code=400, detail="No selected files.")
 
     writer = PdfWriter()
     added = 0
@@ -65,7 +65,7 @@ async def compile_pdfs(payload: CompilePayload):
         added += 1
 
     if added == 0:
-        raise HTTPException(status_code=400, detail="병합할 PDF를 찾을 수 없습니다.")
+        raise HTTPException(status_code=400, detail="No PDF files to merge.")
 
     output = BytesIO()
     writer.write(output)
@@ -73,13 +73,13 @@ async def compile_pdfs(payload: CompilePayload):
 
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # 파일명 처리
+    # filename processing
     if payload.filename and payload.filename.strip():
         base_name = payload.filename.strip()
     else:
         base_name = f"{grade}_merged_{ts}"
 
-    # 확장자 보정
+    # extension check
     if base_name.lower().endswith('.pdf_'):
         base_name = base_name[:-5] + '.pdf'
     elif base_name.lower().endswith('_'):
@@ -87,11 +87,9 @@ async def compile_pdfs(payload: CompilePayload):
     elif not base_name.lower().endswith('.pdf'):
         base_name += '.pdf'
 
-    # ✅ 한글, 공백 완벽 대응 (UTF-8 -> latin-1 변환)
+    # safe encoding for all browsers
     safe_name = base_name.encode('utf-8').decode('latin-1', 'ignore')
-    headers = {
-        "Content-Disposition": f"attachment; filename="{safe_name}""
-    }
+    headers = {"Content-Disposition": f"attachment; filename="{safe_name}""}
 
     return StreamingResponse(output, media_type="application/pdf", headers=headers)
 
