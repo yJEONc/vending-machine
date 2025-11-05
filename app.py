@@ -9,7 +9,7 @@ import os, datetime
 
 app = FastAPI()
 
-# 정적 파일 경로 등록
+# 정적 파일 경로
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
@@ -74,7 +74,7 @@ async def compile_pdfs(payload: CompilePayload):
 
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # 파일명 처리 (빈값, 공백 포함 허용)
+    # 파일명 처리
     if payload.filename and payload.filename.strip():
         base_name = payload.filename.strip()
     else:
@@ -88,10 +88,10 @@ async def compile_pdfs(payload: CompilePayload):
     elif not base_name.lower().endswith('.pdf'):
         base_name += '.pdf'
 
-    # 한글 및 공백 파일명 안전 인코딩
+    # 한글, 공백 대응: filename과 filename* 동시 제공
     encoded_name = quote(base_name)
     headers = {
-        "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_name}"
+        "Content-Disposition": f"attachment; filename="{base_name}"; filename*=UTF-8''{encoded_name}"
     }
 
     return StreamingResponse(output, media_type="application/pdf", headers=headers)
