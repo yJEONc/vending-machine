@@ -1,1 +1,3 @@
-fastapi\nuvicorn[standard]\npypdf
+fastapi
+uvicorn[standard]
+pypdf

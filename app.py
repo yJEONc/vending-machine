@@ -8,7 +8,6 @@ from pypdf import PdfReader, PdfWriter
 import os, datetime
 
 app = FastAPI()
-
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
@@ -21,12 +20,12 @@ DATA_ROOT = "data"
 async def get_grades():
     if not os.path.exists(DATA_ROOT):
         return []
-    grades = []
+    r = []
     for name in os.listdir(DATA_ROOT):
-        path = os.path.join(DATA_ROOT, name)
-        if os.path.isdir(path):
-            grades.append({"id": name, "label": name})
-    return grades
+        p = os.path.join(DATA_ROOT, name)
+        if os.path.isdir(p):
+            r.append({"id": name, "label": name})
+    return r
 
 @app.get("/api/files")
 async def list_files(grade: str):
@@ -44,54 +43,45 @@ class CompilePayload(BaseModel):
 
 @app.post("/api/compile")
 async def compile_pdfs(payload: CompilePayload):
-    grade = payload.grade
-    selected_files = payload.files or []
-    folder = os.path.join(DATA_ROOT, grade)
-
+    folder = os.path.join(DATA_ROOT, payload.grade)
     if not os.path.exists(folder):
         raise HTTPException(status_code=404, detail="Target folder not found.")
-    if not selected_files:
+    selected = payload.files or []
+    if not selected:
         raise HTTPException(status_code=400, detail="No selected files.")
 
-    writer = PdfWriter()
+    w = PdfWriter()
     added = 0
-    for fname in selected_files:
+    for fname in selected:
         path = os.path.join(folder, fname)
         if not os.path.exists(path):
             continue
-        reader = PdfReader(path)
-        for page in reader.pages:
-            writer.add_page(page)
+        r = PdfReader(path)
+        for pg in r.pages:
+            w.add_page(pg)
         added += 1
-
     if added == 0:
         raise HTTPException(status_code=400, detail="No PDF files to merge.")
 
-    output = BytesIO()
-    writer.write(output)
-    output.seek(0)
+    buf = BytesIO()
+    w.write(buf)
+    buf.seek(0)
 
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-
-    # filename processing
     if payload.filename and payload.filename.strip():
-        base_name = payload.filename.strip()
+        base = payload.filename.strip()
     else:
-        base_name = f"{grade}_merged_{ts}"
+        base = f"{payload.grade}_merged_{ts}"
+    if base.lower().endswith('.pdf_'):
+        base = base[:-5] + '.pdf'
+    elif base.lower().endswith('_'):
+        base = base[:-1] + '.pdf'
+    elif not base.lower().endswith('.pdf'):
+        base += '.pdf'
 
-    # extension check
-    if base_name.lower().endswith('.pdf_'):
-        base_name = base_name[:-5] + '.pdf'
-    elif base_name.lower().endswith('_'):
-        base_name = base_name[:-1] + '.pdf'
-    elif not base_name.lower().endswith('.pdf'):
-        base_name += '.pdf'
-
-    # safe encoding for all browsers
-    safe_name = base_name.encode('utf-8').decode('latin-1', 'ignore')
-    headers = {"Content-Disposition": f"attachment; filename="{safe_name}""}
-
-    return StreamingResponse(output, media_type="application/pdf", headers=headers)
+    safe = base.encode('utf-8').decode('latin-1', 'ignore')
+    headers = {"Content-Disposition": f"attachment; filename="{safe}""}
+    return StreamingResponse(buf, media_type="application/pdf", headers=headers)
 
 if __name__ == "__main__":
     import uvicorn
