@@ -11,4 +11,4 @@ COPY . .
 ENV PYTHONUNBUFFERED=1
 
 # Start server (Render gives $PORT)
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "${PORT}"]
+CMD bash -c "uvicorn app:app --host 0.0.0.0 --port ${PORT}"
