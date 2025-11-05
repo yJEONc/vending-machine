@@ -1,14 +1,5 @@
-FROM python:3.11-slim
+FROM python:3.10-slim
 WORKDIR /app
-
-# Install deps
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy app
 COPY . .
-
-ENV PYTHONUNBUFFERED=1
-
-# Start server (Render gives $PORT)
-CMD bash -c "uvicorn app:app --host 0.0.0.0 --port ${PORT}"
+RUN pip install -r requirements.txt
+CMD ["python", "app.py"]

@@ -1,89 +1,42 @@
-# -*- coding: utf-8 -*-
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from io import BytesIO
-from pypdf import PdfReader, PdfWriter
-import os, datetime
+from flask import Flask, render_template, request, send_file
+import os
+from PyPDF2 import PdfMerger
+import urllib.parse
 
-app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app = Flask(__name__, static_folder='static')
 
-@app.get("/")
-def root_page():
-    return FileResponse("static/index.html")
+DATA_FOLDER = "data/grade1"
+OUTPUT_FOLDER = "data"
 
-DATA_ROOT = "data"
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-@app.get("/api/grades")
-async def get_grades():
-    if not os.path.exists(DATA_ROOT):
-        return []
-    r = []
-    for name in os.listdir(DATA_ROOT):
-        p = os.path.join(DATA_ROOT, name)
-        if os.path.isdir(p):
-            r.append({"id": name, "label": name})
-    return r
+@app.route('/merge', methods=['POST'])
+def merge_pdfs():
+    filename = request.form['filename'].strip()
+    if not filename:
+        return "❌ 파일 이름을 입력하세요.", 400
 
-@app.get("/api/files")
-async def list_files(grade: str):
-    folder = os.path.join(DATA_ROOT, grade)
-    if not os.path.exists(folder):
-        raise HTTPException(status_code=404, detail="Folder not found.")
-    pdfs = [f for f in os.listdir(folder) if f.lower().endswith(".pdf")]
-    pdfs.sort()
-    return [{"filename": f} for f in pdfs]
+    safe_filename = urllib.parse.quote(filename)
+    merger = PdfMerger()
 
-class CompilePayload(BaseModel):
-    grade: str
-    files: list[str]
-    filename: str | None = None
+    pdf_files = sorted([
+        f for f in os.listdir(DATA_FOLDER)
+        if f.lower().endswith(".pdf")
+    ])
 
-@app.post("/api/compile")
-async def compile_pdfs(payload: CompilePayload):
-    folder = os.path.join(DATA_ROOT, payload.grade)
-    if not os.path.exists(folder):
-        raise HTTPException(status_code=404, detail="Target folder not found.")
-    selected = payload.files or []
-    if not selected:
-        raise HTTPException(status_code=400, detail="No selected files.")
+    if not pdf_files:
+        return "❌ PDF 파일이 없습니다.", 400
 
-    w = PdfWriter()
-    added = 0
-    for fname in selected:
-        path = os.path.join(folder, fname)
-        if not os.path.exists(path):
-            continue
-        r = PdfReader(path)
-        for pg in r.pages:
-            w.add_page(pg)
-        added += 1
-    if added == 0:
-        raise HTTPException(status_code=400, detail="No PDF files to merge.")
+    for pdf in pdf_files:
+        merger.append(os.path.join(DATA_FOLDER, pdf))
 
-    buf = BytesIO()
-    w.write(buf)
-    buf.seek(0)
+    output_path = os.path.join(OUTPUT_FOLDER, f"{filename}.pdf")
+    merger.write(output_path)
+    merger.close()
 
-    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    if payload.filename and payload.filename.strip():
-        base = payload.filename.strip()
-    else:
-        base = f"{payload.grade}_merged_{ts}"
-    if base.lower().endswith('.pdf_'):
-        base = base[:-5] + '.pdf'
-    elif base.lower().endswith('_'):
-        base = base[:-1] + '.pdf'
-    elif not base.lower().endswith('.pdf'):
-        base += '.pdf'
+    return send_file(output_path, as_attachment=True, download_name=f"{filename}.pdf")
 
-    safe = base.encode('utf-8').decode('latin-1', 'ignore')
-    headers = {'Content-Disposition': f"attachment; filename='{safe}'"}
-    return StreamingResponse(buf, media_type="application/pdf", headers=headers)
-
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("app:app", host="0.0.0.0", port=port)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
