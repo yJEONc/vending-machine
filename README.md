@@ -1,1 +1,1 @@
-# PDF 병합 서버\nRender용 FastAPI 서버 예제.
+# PDF 병합 서버 (한글 완전 호환 버전)\nRender에서 바로 실행 가능

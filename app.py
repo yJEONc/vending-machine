@@ -4,12 +4,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from io import BytesIO
 from pypdf import PdfReader, PdfWriter
-from urllib.parse import quote
 import os, datetime
 
 app = FastAPI()
 
-# 정적 파일 경로
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
@@ -88,10 +86,10 @@ async def compile_pdfs(payload: CompilePayload):
     elif not base_name.lower().endswith('.pdf'):
         base_name += '.pdf'
 
-    # 한글, 공백 대응: filename과 filename* 동시 제공
-    encoded_name = quote(base_name)
+    # ✅ 한글, 공백 완벽 대응 (UTF-8 -> latin-1 변환)
+    safe_name = base_name.encode('utf-8').decode('latin-1', 'ignore')
     headers = {
-        "Content-Disposition": f"attachment; filename="{base_name}"; filename*=UTF-8''{encoded_name}"
+        "Content-Disposition": f"attachment; filename="{safe_name}""
     }
 
     return StreamingResponse(output, media_type="application/pdf", headers=headers)
