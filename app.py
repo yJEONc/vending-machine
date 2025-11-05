@@ -3,7 +3,7 @@ import os
 from PyPDF2 import PdfMerger
 import urllib.parse
 
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__, static_folder='static', template_folder='templates')
 
 DATA_FOLDER = "data/grade1"
 OUTPUT_FOLDER = "data"
