@@ -9,6 +9,7 @@ import os, datetime
 
 app = FastAPI()
 
+# 정적 파일 경로 등록
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
@@ -73,22 +74,25 @@ async def compile_pdfs(payload: CompilePayload):
 
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # 파일명 처리
+    # 파일명 처리 (빈값, 공백 포함 허용)
     if payload.filename and payload.filename.strip():
         base_name = payload.filename.strip()
     else:
         base_name = f"{grade}_merged_{ts}"
 
-    if base_name.lower().endswith(".pdf_"):
-        base_name = base_name[:-5] + ".pdf"
-    elif base_name.lower().endswith("_"):
-        base_name = base_name[:-1] + ".pdf"
-    elif not base_name.lower().endswith(".pdf"):
-        base_name += ".pdf"
+    # 확장자 보정
+    if base_name.lower().endswith('.pdf_'):
+        base_name = base_name[:-5] + '.pdf'
+    elif base_name.lower().endswith('_'):
+        base_name = base_name[:-1] + '.pdf'
+    elif not base_name.lower().endswith('.pdf'):
+        base_name += '.pdf'
 
+    # 한글 및 공백 파일명 안전 인코딩
     encoded_name = quote(base_name)
-    content_disposition = f"attachment; filename*=UTF-8''{encoded_name}"
-    headers = {"Content-Disposition": content_disposition}
+    headers = {
+        "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_name}"
+    }
 
     return StreamingResponse(output, media_type="application/pdf", headers=headers)
 
