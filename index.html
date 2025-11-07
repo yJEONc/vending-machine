@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📚 Grade1 PDF 합치기</title>
+  <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+  <style>
+    body {
+      font-family: "Pretendard", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: #f9f9f9;
+    }
+    .container {
+      text-align: center;
+      background: #fff;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    input, button {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    input[type="file"], input[type="text"] {
+      border: 1px solid #ccc;
+      width: 250px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>📚 Grade1 PDF 합치기</h2>
+    <input type="file" id="pdfFiles" multiple accept=".pdf"><br>
+    <input type="text" id="outputFilename" placeholder="예: 단원평가_모음"><br>
+    <button id="mergeBtn">합치기 및 다운로드</button>
+  </div>
+
+  <script>
+    const mergeBtn = document.getElementById("mergeBtn");
+
+    mergeBtn.addEventListener("click", async () => {
+      const files = document.getElementById("pdfFiles").files;
+      const outputName = document.getElementById("outputFilename").value.trim() || "합쳐진파일";
+      if (files.length === 0) return alert("PDF 파일을 선택하세요.");
+
+      const mergedPdf = await PDFLib.PDFDocument.create();
+
+      for (const file of files) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await PDFLib.PDFDocument.load(arrayBuffer);
+        const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+        copiedPages.forEach((page) => mergedPdf.addPage(page));
+      }
+
+      const mergedPdfBytes = await mergedPdf.save();
+      const blob = new Blob([mergedPdfBytes], { type: "application/pdf" });
+
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${outputName}.pdf`;
+      link.click();
+
+      URL.revokeObjectURL(link.href);
+    });
+  </script>
+</body>
+</html>
