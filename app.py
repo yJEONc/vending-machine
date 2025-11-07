@@ -1,42 +1,41 @@
 from flask import Flask, render_template, request, send_file
-import os
 from PyPDF2 import PdfMerger
+import os
 import urllib.parse
 
-app = Flask(__name__, static_folder='static', template_folder='templates')
+app = Flask(__name__)
+UPLOAD_FOLDER = "data"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-DATA_FOLDER = "data/grade1"
-OUTPUT_FOLDER = "data"
-
-@app.route('/')
+@app.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
-@app.route('/merge', methods=['POST'])
+@app.route("/merge", methods=["POST"])
 def merge_pdfs():
-    filename = request.form['filename'].strip()
-    if not filename:
-        return "❌ 파일 이름을 입력하세요.", 400
+    files = request.files.getlist("pdf_files")
+    output_filename = request.form.get("output_filename", "합쳐진파일")
 
-    safe_filename = urllib.parse.quote(filename)
+    if not files:
+        return "파일이 선택되지 않았습니다.", 400
+
     merger = PdfMerger()
+    for file in files:
+        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(filepath)
+        merger.append(filepath)
 
-    pdf_files = sorted([
-        f for f in os.listdir(DATA_FOLDER)
-        if f.lower().endswith(".pdf")
-    ])
-
-    if not pdf_files:
-        return "❌ PDF 파일이 없습니다.", 400
-
-    for pdf in pdf_files:
-        merger.append(os.path.join(DATA_FOLDER, pdf))
-
-    output_path = os.path.join(OUTPUT_FOLDER, f"{filename}.pdf")
-    merger.write(output_path)
+    merged_path = os.path.join(UPLOAD_FOLDER, f"{output_filename}.pdf")
+    merger.write(merged_path)
     merger.close()
 
-    return send_file(output_path, as_attachment=True, download_name=f"{filename}.pdf")
+    encoded_name = urllib.parse.quote(f"{output_filename}.pdf")
+    response = send_file(merged_path, as_attachment=True)
+    response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_name}"
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    for file in files:
+        os.remove(os.path.join(UPLOAD_FOLDER, file.filename))
+    return response
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
