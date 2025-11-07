@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF 합치기</title>
+  <style>
+    body {
+      font-family: "Pretendard", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: #f9f9f9;
+    }
+    .container {
+      text-align: center;
+      background: #fff;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    input[type="file"], input[type="text"] {
+      margin: 10px 0;
+      padding: 10px;
+      width: 250px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>📚 Grade1 PDF 합치기</h2>
+    <form id="mergeForm" action="/merge" method="post" enctype="multipart/form-data">
+      <div>
+        <label for="pdfFiles">📂 PDF 파일 선택:</label><br>
+        <input type="file" id="pdfFiles" name="pdfFiles" multiple accept=".pdf" required />
+      </div>
+      <div>
+        <label for="outputFilename">저장할 파일 이름:</label><br>
+        <input type="text" id="outputFilename" name="outputFilename" placeholder="예: 단원평가_모음" required />
+      </div>
+      <button type="submit">합치기 및 다운로드</button>
+    </form>
+  </div>
+</body>
+</html>
