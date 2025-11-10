@@ -1,4 +1,5 @@
 import os
+import re
 from flask import Flask, render_template, request, send_file
 from PyPDF2 import PdfMerger
 import urllib.parse
@@ -19,7 +20,14 @@ def show_grade(grade):
     if not os.path.exists(grade_path):
         return "해당 학년 폴더가 존재하지 않습니다.", 404
 
-    pdf_files = [f for f in os.listdir(grade_path) if f.lower().endswith(".pdf")]
+    def natural_key(filename):
+        return [int(t) if t.isdigit() else t.lower() for t in re.split(r'([0-9]+)', filename)]
+
+    pdf_files = sorted(
+        [f for f in os.listdir(grade_path) if f.lower().endswith(".pdf")],
+        key=natural_key
+    )
+
     return render_template("index.html", grades=None, pdf_files=pdf_files, selected_grade=grade)
 
 @app.route("/merge", methods=["POST"])
