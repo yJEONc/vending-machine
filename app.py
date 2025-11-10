@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, redirect, url_for
 from PyPDF2 import PdfMerger
 import os, urllib.parse
 
@@ -7,22 +7,34 @@ DATA_FOLDER = "data"
 
 @app.route("/")
 def index():
-    pdf_files = [f for f in os.listdir(DATA_FOLDER) if f.lower().endswith(".pdf")]
-    return render_template("index.html", pdf_files=pdf_files)
+    # 학년 폴더 목록 표시
+    grades = [d for d in os.listdir(DATA_FOLDER) if os.path.isdir(os.path.join(DATA_FOLDER, d))]
+    return render_template("index.html", grades=grades, pdf_files=None, selected_grade=None)
+
+@app.route("/grade/<grade>")
+def show_grade(grade):
+    grade_path = os.path.join(DATA_FOLDER, grade)
+    if not os.path.exists(grade_path):
+        return "해당 학년 폴더가 존재하지 않습니다.", 404
+
+    pdf_files = [f for f in os.listdir(grade_path) if f.lower().endswith(".pdf")]
+    return render_template("index.html", grades=None, pdf_files=pdf_files, selected_grade=grade)
 
 @app.route("/merge", methods=["POST"])
 def merge_pdfs():
+    selected_grade = request.form.get("selected_grade")
     selected_files = request.form.getlist("selected_files")
     output_filename = request.form.get("output_filename", "합쳐진파일")
 
-    if not selected_files:
+    if not selected_grade or not selected_files:
         return "선택된 파일이 없습니다.", 400
 
+    grade_path = os.path.join(DATA_FOLDER, selected_grade)
     merger = PdfMerger()
     for filename in selected_files:
-        merger.append(os.path.join(DATA_FOLDER, filename))
+        merger.append(os.path.join(grade_path, filename))
 
-    merged_path = os.path.join(DATA_FOLDER, f"{output_filename}.pdf")
+    merged_path = os.path.join(grade_path, f"{output_filename}.pdf")
     merger.write(merged_path)
     merger.close()
 
