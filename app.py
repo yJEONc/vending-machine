@@ -1,13 +1,15 @@
-from flask import Flask, render_template, request, send_file, redirect, url_for
+import os
+from flask import Flask, render_template, request, send_file
 from PyPDF2 import PdfMerger
-import os, urllib.parse
+import urllib.parse
 
 app = Flask(__name__)
-DATA_FOLDER = "data"
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_FOLDER = os.path.join(BASE_DIR, "data")
 
 @app.route("/")
 def index():
-    # 학년 폴더 목록 표시
     grades = [d for d in os.listdir(DATA_FOLDER) if os.path.isdir(os.path.join(DATA_FOLDER, d))]
     return render_template("index.html", grades=grades, pdf_files=None, selected_grade=None)
 
