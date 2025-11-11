@@ -2,62 +2,14 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Grade PDF 합치기</title>
-    <style>
-        body { font-family: sans-serif; margin: 30px; }
-        label { display: block; margin: 4px 0; }
-        .order { color: blue; font-weight: bold; margin-left: 6px; }
-    </style>
+    <title>폴더 선택</title>
 </head>
 <body>
-    <h1>Grade PDF 합치기</h1>
-
-    {% if grades %}
-        <h2>학년 선택</h2>
-        <ul>
-        {% for grade in grades %}
-            <li><a href="/grade/{{ grade }}">{{ grade }}</a></li>
+    <h2>PDF 폴더 선택</h2>
+    <ul>
+        {% for folder in subfolders %}
+        <li><a href="/files?folder={{ folder }}">{{ folder }}</a></li>
         {% endfor %}
-        </ul>
-    {% elif pdf_files %}
-        <h2>{{ selected_grade }} 파일 목록</h2>
-        <form action="/merge" method="post" id="mergeForm">
-            <input type="hidden" name="selected_grade" value="{{ selected_grade }}">
-            <input type="hidden" name="file_order" id="file_order">
-            {% for file in pdf_files %}
-                <label>
-                    <input type="checkbox" name="selected_files" value="{{ file }}" onchange="updateOrder(this)"> 
-                    {{ file }} <span class="order" id="order_{{ loop.index }}"></span>
-                </label>
-            {% endfor %}
-            <input type="text" name="output_filename" placeholder="출력 파일명">
-            <button type="submit">선택한 PDF 합치기</button>
-        </form>
-
-        <script>
-            let orderList = [];
-            function updateOrder(checkbox) {
-                const filename = checkbox.value;
-                const label = checkbox.parentElement.querySelector('.order');
-                if (checkbox.checked) {
-                    orderList.push(filename);
-                    label.textContent = orderList.length + "️⃣";
-                } else {
-                    orderList = orderList.filter(f => f !== filename);
-                    label.textContent = "";
-                    // 순서 다시 표시
-                    document.querySelectorAll("input[type='checkbox']").forEach(cb => {
-                        const file = cb.value;
-                        const lbl = cb.parentElement.querySelector('.order');
-                        const idx = orderList.indexOf(file);
-                        lbl.textContent = idx >= 0 ? (idx + 1) + "️⃣" : "";
-                    });
-                }
-                document.getElementById("file_order").value = JSON.stringify(orderList);
-            }
-        </script>
-    {% else %}
-        <p>불러올 데이터가 없습니다.</p>
-    {% endif %}
+    </ul>
 </body>
 </html>

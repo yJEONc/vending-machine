@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ folder }} 폴더의 PDF 목록</title>
+</head>
+<body>
+    <h2>{{ folder }} 폴더의 PDF 목록</h2>
+    <form method="POST" action="/merge">
+        <input type="hidden" name="folder" value="{{ folder }}">
+        {% for file in pdf_files %}
+            <input type="checkbox" name="files" value="{{ file }}"> {{ file }}<br>
+        {% endfor %}
+        <br>
+        <label>출력 파일명: </label>
+        <input type="text" name="output_filename" value="merged.pdf">
+        <button type="submit">합치기</button>
+    </form>
+    <br>
+    <a href="/">← 폴더 목록으로 돌아가기</a>
+</body>
+</html>

@@ -1,61 +1,54 @@
-import os, re, json, urllib.parse
 from flask import Flask, render_template, request, send_file
+import os
 from PyPDF2 import PdfMerger
+import io
 
 app = Flask(__name__)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_FOLDER = os.path.join(BASE_DIR, "data")
+DATA_FOLDER = "data"
 
-@app.route("/")
+@app.route('/')
 def index():
-    grades = [d for d in os.listdir(DATA_FOLDER) if os.path.isdir(os.path.join(DATA_FOLDER, d))]
-    return render_template("index.html", grades=grades, pdf_files=None, selected_grade=None)
+    subfolders = [f for f in os.listdir(DATA_FOLDER)
+                  if os.path.isdir(os.path.join(DATA_FOLDER, f))]
+    return render_template('index.html', subfolders=subfolders)
 
-@app.route("/grade/<grade>")
-def show_grade(grade):
-    grade_path = os.path.join(DATA_FOLDER, grade)
-    if not os.path.exists(grade_path):
-        return "해당 학년 폴더가 존재하지 않습니다.", 404
+@app.route('/files', methods=['GET'])
+def files():
+    folder = request.args.get('folder')
+    folder_path = os.path.join(DATA_FOLDER, folder)
+    if not os.path.exists(folder_path):
+        return f"폴더 '{folder}'를 찾을 수 없습니다.", 404
 
-    def natural_key(filename):
-        return [int(t) if t.isdigit() else t.lower() for t in re.split(r'([0-9]+)', filename)]
-    pdf_files = sorted(
-        [f for f in os.listdir(grade_path) if f.lower().endswith(".pdf")],
-        key=natural_key
-    )
-    return render_template("index.html", grades=None, pdf_files=pdf_files, selected_grade=grade)
+    pdf_files = [f for f in os.listdir(folder_path) if f.endswith('.pdf')]
+    return render_template('files.html', folder=folder, pdf_files=pdf_files)
 
-@app.route("/merge", methods=["POST"])
-def merge_pdfs():
-    selected_grade = request.form.get("selected_grade")
-    selected_files = request.form.getlist("selected_files")
-    file_order = request.form.get("file_order", "[]")
-    output_filename = request.form.get("output_filename", "합쳐진파일")
+@app.route('/merge', methods=['POST'])
+def merge():
+    folder = request.form.get('folder')
+    selected_files = request.form.getlist('files')
+    output_filename = request.form.get('output_filename', 'merged.pdf')
 
-    try:
-        order_list = json.loads(file_order)
-    except json.JSONDecodeError:
-        order_list = selected_files
+    if not selected_files:
+        return "파일을 하나 이상 선택하세요."
 
-    ordered_files = [f for f in order_list if f in selected_files]
-
-    if not selected_grade or not ordered_files:
-        return "선택된 파일이 없습니다.", 400
-
-    grade_path = os.path.join(DATA_FOLDER, selected_grade)
     merger = PdfMerger()
-    for filename in ordered_files:
-        merger.append(os.path.join(grade_path, filename))
+    folder_path = os.path.join(DATA_FOLDER, folder)
 
-    merged_path = os.path.join(grade_path, f"{output_filename}.pdf")
-    merger.write(merged_path)
+    for file in selected_files:
+        merger.append(os.path.join(folder_path, file))
+
+    merged_pdf = io.BytesIO()
+    merger.write(merged_pdf)
     merger.close()
+    merged_pdf.seek(0)
 
-    encoded_name = urllib.parse.quote(f"{output_filename}.pdf")
-    response = send_file(merged_path, as_attachment=True)
-    response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_name}"
-    return response
+    return send_file(
+        merged_pdf,
+        as_attachment=True,
+        download_name=output_filename,
+        mimetype='application/pdf'
+    )
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+if __name__ == '__main__':
+    app.run(debug=True)
