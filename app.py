@@ -15,6 +15,7 @@ def sort_by_number(filename):
 def index():
     subfolders = [f for f in os.listdir(DATA_FOLDER)
                   if os.path.isdir(os.path.join(DATA_FOLDER, f))]
+    subfolders.sort(key=sort_by_number)
     return render_template('index.html', subfolders=subfolders)
 
 @app.route('/files', methods=['GET'])
