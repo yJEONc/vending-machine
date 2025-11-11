@@ -1,22 +1,59 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>{{ folder }} 폴더의 PDF 목록</title>
+  <meta charset="UTF-8">
+  <title>{{ folder }} 폴더의 PDF 목록</title>
+  <script>
+    let selectedOrder = [];
+
+    function toggleFile(checkbox) {
+      const file = checkbox.value;
+      if (checkbox.checked) {
+        selectedOrder.push(file);
+      } else {
+        selectedOrder = selectedOrder.filter(f => f !== file);
+      }
+      updateHiddenInputs();
+    }
+
+    function updateHiddenInputs() {
+      const container = document.getElementById('selected-container');
+      container.innerHTML = '';
+      selectedOrder.forEach(f => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'files[]';
+        input.value = f;
+        container.appendChild(input);
+      });
+    }
+
+    function addExtension() {
+      const nameField = document.getElementById('filename');
+      if (!nameField.value.toLowerCase().endsWith('.pdf')) {
+        nameField.value = nameField.value + '.pdf';
+      }
+    }
+  </script>
 </head>
 <body>
-    <h2>{{ folder }} 폴더의 PDF 목록</h2>
-    <form method="POST" action="/merge">
-        <input type="hidden" name="folder" value="{{ folder }}">
-        {% for file in pdf_files %}
-            <input type="checkbox" name="files" value="{{ file }}"> {{ file }}<br>
-        {% endfor %}
-        <br>
-        <label>출력 파일명: </label>
-        <input type="text" name="output_filename" value="merged.pdf">
-        <button type="submit">합치기</button>
-    </form>
+  <h2>{{ folder }} 폴더의 PDF 목록</h2>
+  <form method="POST" action="/merge">
+    <input type="hidden" name="folder" value="{{ folder }}">
+    <div id="selected-container"></div>
+
+    {% for file in pdf_files %}
+      <input type="checkbox" value="{{ file }}" onclick="toggleFile(this)"> {{ file }}<br>
+    {% endfor %}
+
     <br>
-    <a href="/">← 폴더 목록으로 돌아가기</a>
+    <label>출력 파일명: </label>
+    <input type="text" id="filename" name="output_filename" value="merged">
+    <button type="button" onclick="addExtension()">.pdf 붙이기</button>
+    <button type="submit">합치기</button>
+  </form>
+
+  <br>
+  <a href="/">← 폴더 목록으로 돌아가기</a>
 </body>
 </html>

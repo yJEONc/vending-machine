@@ -2,10 +2,14 @@ from flask import Flask, render_template, request, send_file
 import os
 from PyPDF2 import PdfMerger
 import io
+import re
 
 app = Flask(__name__)
-
 DATA_FOLDER = "data"
+
+def sort_by_number(filename):
+    numbers = re.findall(r'\d+', filename)
+    return tuple(map(int, numbers)) if numbers else (9999,)
 
 @app.route('/')
 def index():
@@ -21,13 +25,17 @@ def files():
         return f"폴더 '{folder}'를 찾을 수 없습니다.", 404
 
     pdf_files = [f for f in os.listdir(folder_path) if f.endswith('.pdf')]
+    pdf_files.sort(key=sort_by_number)
     return render_template('files.html', folder=folder, pdf_files=pdf_files)
 
 @app.route('/merge', methods=['POST'])
 def merge():
     folder = request.form.get('folder')
-    selected_files = request.form.getlist('files')
-    output_filename = request.form.get('output_filename', 'merged.pdf')
+    selected_files = request.form.getlist('files[]')
+    output_filename = request.form.get('output_filename', 'merged')
+
+    if not output_filename.lower().endswith('.pdf'):
+        output_filename += '.pdf'
 
     if not selected_files:
         return "파일을 하나 이상 선택하세요."
