@@ -13,11 +13,11 @@
   <script>
     let selectedOrder = [];
 
-    function toggleFile(checkbox, file) {
+    function toggleFile(checkbox, idx, file) {
       if (checkbox.checked) {
-        selectedOrder.push(file);
+        selectedOrder.push({idx: idx, file: file});
       } else {
-        selectedOrder = selectedOrder.filter(f => f !== file);
+        selectedOrder = selectedOrder.filter(f => f.file !== file);
       }
       updateHiddenInputs();
       updateLabels();
@@ -30,17 +30,15 @@
         const input = document.createElement('input');
         input.type = 'hidden';
         input.name = 'files[]';
-        input.value = f;
+        input.value = f.file;
         container.appendChild(input);
       });
     }
 
-    // ✅ 클릭 순서 번호 표시
     function updateLabels() {
       document.querySelectorAll('.order-label').forEach(l => l.textContent = '');
       selectedOrder.forEach((f, i) => {
-        const safeId = f.replace(/[^a-zA-Z0-9]/g, '');
-        const label = document.getElementById('label-' + safeId);
+        const label = document.getElementById('label-' + f.idx);
         if (label) label.textContent = '(' + (i + 1) + ')';
       });
     }
@@ -53,9 +51,8 @@
     <div id="selected-container"></div>
 
     {% for file in pdf_files %}
-      {% set clean_id = file|replace(' ', '')|replace('[', '')|replace(']', '')|replace('(', '')|replace(')', '')|replace('.', '')|replace('-', '') %}
-      <input type="checkbox" value="{{ file }}" onclick="toggleFile(this, '{{ file }}')"> {{ file }}
-      <span class="order-label" id="label-{{ clean_id }}"></span><br>
+      <input type="checkbox" value="{{ file }}" onclick="toggleFile(this, {{ loop.index0 }}, '{{ file }}')">
+      {{ file }} <span class="order-label" id="label-{{ loop.index0 }}"></span><br>
     {% endfor %}
 
     <br>
