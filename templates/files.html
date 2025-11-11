@@ -13,10 +13,7 @@
   <script>
     let selectedOrder = [];
 
-    function toggleFile(checkbox, labelId) {
-      const file = checkbox.value;
-      const label = document.getElementById(labelId);
-
+    function toggleFile(checkbox, file) {
       if (checkbox.checked) {
         selectedOrder.push(file);
       } else {
@@ -38,11 +35,12 @@
       });
     }
 
-    // ✅ 클릭 순서 시각적으로 표시
+    // ✅ 클릭 순서 번호 표시
     function updateLabels() {
       document.querySelectorAll('.order-label').forEach(l => l.textContent = '');
       selectedOrder.forEach((f, i) => {
-        const label = document.getElementById('label-' + f.replace(/[^a-zA-Z0-9]/g, ''));
+        const safeId = f.replace(/[^a-zA-Z0-9]/g, '');
+        const label = document.getElementById('label-' + safeId);
         if (label) label.textContent = '(' + (i + 1) + ')';
       });
     }
@@ -56,7 +54,7 @@
 
     {% for file in pdf_files %}
       {% set clean_id = file|replace(' ', '')|replace('[', '')|replace(']', '')|replace('(', '')|replace(')', '')|replace('.', '')|replace('-', '') %}
-      <input type="checkbox" value="{{ file }}" onclick="toggleFile(this, 'label-{{ clean_id }}')"> {{ file }}
+      <input type="checkbox" value="{{ file }}" onclick="toggleFile(this, '{{ file }}')"> {{ file }}
       <span class="order-label" id="label-{{ clean_id }}"></span><br>
     {% endfor %}
 
