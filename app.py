@@ -34,6 +34,7 @@ def merge():
     selected_files = request.form.getlist('files[]')
     output_filename = request.form.get('output_filename', 'merged')
 
+    # ✅ 합칠 때 자동으로 .pdf 확장자 추가
     if not output_filename.lower().endswith('.pdf'):
         output_filename += '.pdf'
 

@@ -3,17 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <title>{{ folder }} 폴더의 PDF 목록</title>
+  <style>
+    .order-label {
+      color: blue;
+      font-weight: bold;
+      margin-left: 8px;
+    }
+  </style>
   <script>
     let selectedOrder = [];
 
-    function toggleFile(checkbox) {
+    function toggleFile(checkbox, labelId) {
       const file = checkbox.value;
+      const label = document.getElementById(labelId);
+
       if (checkbox.checked) {
         selectedOrder.push(file);
       } else {
         selectedOrder = selectedOrder.filter(f => f !== file);
       }
       updateHiddenInputs();
+      updateLabels();
     }
 
     function updateHiddenInputs() {
@@ -28,11 +38,13 @@
       });
     }
 
-    function addExtension() {
-      const nameField = document.getElementById('filename');
-      if (!nameField.value.toLowerCase().endsWith('.pdf')) {
-        nameField.value = nameField.value + '.pdf';
-      }
+    // ✅ 클릭 순서 시각적으로 표시
+    function updateLabels() {
+      document.querySelectorAll('.order-label').forEach(l => l.textContent = '');
+      selectedOrder.forEach((f, i) => {
+        const label = document.getElementById('label-' + f.replace(/[^a-zA-Z0-9]/g, ''));
+        if (label) label.textContent = '(' + (i + 1) + ')';
+      });
     }
   </script>
 </head>
@@ -43,13 +55,14 @@
     <div id="selected-container"></div>
 
     {% for file in pdf_files %}
-      <input type="checkbox" value="{{ file }}" onclick="toggleFile(this)"> {{ file }}<br>
+      {% set clean_id = file|replace(' ', '')|replace('[', '')|replace(']', '')|replace('(', '')|replace(')', '')|replace('.', '')|replace('-', '') %}
+      <input type="checkbox" value="{{ file }}" onclick="toggleFile(this, 'label-{{ clean_id }}')"> {{ file }}
+      <span class="order-label" id="label-{{ clean_id }}"></span><br>
     {% endfor %}
 
     <br>
     <label>출력 파일명: </label>
     <input type="text" id="filename" name="output_filename" value="merged">
-    <button type="button" onclick="addExtension()">.pdf 붙이기</button>
     <button type="submit">합치기</button>
   </form>
 
