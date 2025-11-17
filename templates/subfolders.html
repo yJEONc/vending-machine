@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ folder }} 폴더의 하위 폴더</title>
+</head>
+<body>
+    <h2>{{ folder }} 폴더의 하위 폴더 목록</h2>
+    <ul>
+        {% for subfolder in subfolders %}
+            <li><a href="{{ url_for('files', folder=folder + '/' + subfolder) }}">{{ subfolder }}</a></li>
+        {% endfor %}
+    </ul>
+
+    <a href="/">← 폴더 목록으로 돌아가기</a>
+</body>
+</html>

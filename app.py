@@ -25,9 +25,22 @@ def files():
     if not os.path.exists(folder_path):
         return f"폴더 '{folder}'를 찾을 수 없습니다.", 404
 
-    pdf_files = [f for f in os.listdir(folder_path) if f.endswith('.pdf')]
+    # 하위 폴더 탐색
+    subfolders = [f for f in os.listdir(folder_path)
+                  if os.path.isdir(os.path.join(folder_path, f))]
+    subfolders.sort(key=sort_by_number)
+
+    # PDF 파일 탐색
+    pdf_files = [f for f in os.listdir(folder_path)
+                 if f.endswith('.pdf')]
     pdf_files.sort(key=sort_by_number)
-    return render_template('files.html', folder=folder, pdf_files=pdf_files)
+
+    # 하위폴더가 있으면 폴더 목록 표시
+    if subfolders and not pdf_files:
+        return render_template('subfolders.html', folder=folder, subfolders=subfolders)
+    else:
+        return render_template('files.html', folder=folder, pdf_files=pdf_files)
+
 
 @app.route('/merge', methods=['POST'])
 def merge():
