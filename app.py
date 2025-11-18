@@ -1,184 +1,201 @@
-from flask import Flask, render_template, request, send_file
 import os
-from PyPDF2 import PdfMerger
 import io
-import re
+import tempfile
+from flask import Flask, render_template, request, redirect, url_for, send_file, flash
+from pydrive2.auth import GoogleAuth
+from pydrive2.drive import GoogleDrive
+from oauth2client.service_account import ServiceAccountCredentials
+from PyPDF2 import PdfMerger
 
 app = Flask(__name__)
-DATA_FOLDER = "data"
+# 👉 배포 전에 더 복잡한 랜덤 값으로 바꾸는 걸 추천
+app.secret_key = "change-this-to-a-random-secret-key"
 
-def sort_by_number(filename):
-    numbers = re.findall(r'\d+', filename)
-    return tuple(map(int, numbers)) if numbers else (9999,)
+# 네가 만들어둔 구글 드라이브 폴더 ID
+ROOT_FOLDER_ID = "18L1UqiyY6AmfTcPOFTdJZ6bYuCnHHGZ3"
 
-@app.route('/')
+SCOPES = ['https://www.googleapis.com/auth/drive']
+
+def get_drive():
+    """service_account.json 을 사용해서 Google Drive 객체 생성"""
+    gauth = GoogleAuth()
+    gauth.credentials = ServiceAccountCredentials.from_json_keyfile_name(
+        'service_account.json',
+        scopes=SCOPES
+    )
+    drive = GoogleDrive(gauth)
+    return drive
+
+def get_folder_title(drive, folder_id):
+    if not folder_id:
+        return "Root"
+    try:
+        f = drive.CreateFile({'id': folder_id})
+        f.FetchMetadata()
+        return f.get('title', '폴더')
+    except Exception:
+        return "폴더"
+
+@app.route("/")
 def index():
-    subfolders = [f for f in os.listdir(DATA_FOLDER)
-                  if os.path.isdir(os.path.join(DATA_FOLDER, f))]
-    subfolders.sort(key=sort_by_number)
-    return render_template('index.html', subfolders=subfolders)
+    # 항상 루트 폴더 기준으로 시작
+    return redirect(url_for("browse", folder_id=ROOT_FOLDER_ID))
 
-@app.route('/files', methods=['GET'])
-def files():
-    folder = request.args.get('folder')
-    folder_path = os.path.join(DATA_FOLDER, folder)
-    if not os.path.exists(folder_path):
-        return f"폴더 '{folder}'를 찾을 수 없습니다.", 404
+@app.route("/folder/<folder_id>")
+def browse(folder_id):
+    drive = get_drive()
 
-    # 하위 폴더 탐색
-    subfolders = [f for f in os.listdir(folder_path)
-                  if os.path.isdir(os.path.join(folder_path, f))]
-    subfolders.sort(key=sort_by_number)
+    # 현재 폴더 이름
+    folder_name = get_folder_title(drive, folder_id)
 
-    # PDF 파일 탐색
-    pdf_files = [f for f in os.listdir(folder_path)
-                 if f.endswith('.pdf')]
-    pdf_files.sort(key=sort_by_number)
+    # 현재 폴더 안의 항목들 가져오기
+    file_list = drive.ListFile({
+        'q': f"'{{folder_id}}' in parents and trashed=false",
+        'orderBy': 'folder, title'
+    }).GetList()
 
-    # 하위폴더가 있으면 폴더 목록 표시
-    if subfolders and not pdf_files:
-        return render_template('subfolders.html', folder=folder, subfolders=subfolders)
-    else:
-        return render_template('files.html', folder=folder, pdf_files=pdf_files)
+    folders = []
+    pdf_files = []
 
-from flask import Flask, render_template, request, send_file, redirect, url_for, flash
-from werkzeug.utils import secure_filename
-import os
-from PyPDF2 import PdfMerger
-import io
-import re
+    for f in file_list:
+        mime = f.get('mimeType', '')
+        if mime == 'application/vnd.google-apps.folder':
+            folders.append(f)
+        else:
+            # PDF만 대상으로
+            title = f.get('title', '')
+            if title.lower().endswith('.pdf'):
+                pdf_files.append(f)
 
-app = Flask(__name__)
-app.secret_key = 'secret-key'  # flash 메시지용
-DATA_FOLDER = "data"
-UPLOAD_EXTENSIONS = ['.pdf']
-
-def sort_by_number(filename):
-    numbers = re.findall(r'\d+', filename)
-    return tuple(map(int, numbers)) if numbers else (9999,)
-
-@app.route('/')
-def index():
-    subfolders = [f for f in os.listdir(DATA_FOLDER)
-                  if os.path.isdir(os.path.join(DATA_FOLDER, f))]
-    subfolders.sort(key=sort_by_number)
-    return render_template('index.html', subfolders=subfolders, folder='')
-
-@app.route('/files', methods=['GET'])
-def files():
-    folder = request.args.get('folder', '')
-    folder_path = os.path.join(DATA_FOLDER, folder)
-    if not os.path.exists(folder_path):
-        return f"폴더 '{folder}'를 찾을 수 없습니다.", 404
-
-    subfolders = [f for f in os.listdir(folder_path)
-                  if os.path.isdir(os.path.join(folder_path, f))]
-    subfolders.sort(key=sort_by_number)
-
-    pdf_files = [f for f in os.listdir(folder_path) if f.endswith('.pdf')]
-    pdf_files.sort(key=sort_by_number)
-
-    if subfolders and not pdf_files:
-        return render_template('subfolders.html', folder=folder, subfolders=subfolders)
-    else:
-        return render_template('files.html', folder=folder, pdf_files=pdf_files)
-
-@app.route('/merge', methods=['POST'])
-def merge():
-    folder = request.form.get('folder')
-    selected_files = request.form.getlist('files[]')
-    output_filename = request.form.get('output_filename', 'merged')
-
-    if not output_filename.lower().endswith('.pdf'):
-        output_filename += '.pdf'
-
-    if not selected_files:
-        return "파일을 하나 이상 선택하세요."
-
-    merger = PdfMerger()
-    folder_path = os.path.join(DATA_FOLDER, folder)
-
-    for file in selected_files:
-        merger.append(os.path.join(folder_path, file))
-
-    merged_pdf = io.BytesIO()
-    merger.write(merged_pdf)
-    merger.close()
-    merged_pdf.seek(0)
-
-    return send_file(
-        merged_pdf,
-        as_attachment=True,
-        download_name=output_filename,
-        mimetype='application/pdf'
+    return render_template(
+        "folder.html",
+        folder_id=folder_id,
+        root_id=ROOT_FOLDER_ID,
+        folder_name=folder_name,
+        folders=folders,
+        pdf_files=pdf_files
     )
 
-
-@app.route('/create_folder', methods=['POST'])
-def create_folder():
-    parent = request.form.get('parent', '')
-    new_folder = request.form.get('new_folder', '').strip()
-
-    if not new_folder:
-        flash("폴더 이름을 입력하세요.")
-        return redirect(url_for('files', folder=parent) if parent else url_for('index'))
-
-    folder_path = os.path.join(DATA_FOLDER, parent, new_folder)
-    os.makedirs(folder_path, exist_ok=True)
-    flash(f"폴더 '{new_folder}'가 생성되었습니다.")
-    return redirect(url_for('files', folder=parent) if parent else url_for('index'))
-
-
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    folder = request.form.get('folder', '')
-    file = request.files.get('file')
+@app.route("/upload", methods=["POST"])
+def upload():
+    folder_id = request.form.get("folder_id")
+    file = request.files.get("file")
 
     if not file:
-        flash("파일을 선택하세요.")
-        return redirect(url_for('files', folder=folder) if folder else url_for('index'))
+        flash("업로드할 파일을 선택하세요.")
+        return redirect(url_for("browse", folder_id=folder_id))
 
-    filename = secure_filename(file.filename)
-    ext = os.path.splitext(filename)[1].lower()
-    if ext not in UPLOAD_EXTENSIONS:
-        flash("PDF 파일만 업로드 가능합니다.")
-        return redirect(url_for('files', folder=folder) if folder else url_for('index'))
+    drive = get_drive()
+    new_file = drive.CreateFile({
+        'title': file.filename,
+        'parents': [{'id': folder_id}]
+    })
 
-    save_path = os.path.join(DATA_FOLDER, folder, filename)
-    file.save(save_path)
-    flash(f"'{filename}' 업로드 완료.")
-    return redirect(url_for('files', folder=folder) if folder else url_for('index'))
+    # 임시 파일에 저장 후 업로드 (바이너리 안전)
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp.write(file.read())
+        tmp_path = tmp.name
 
+    new_file.SetContentFile(tmp_path)
+    new_file.Upload()
 
-@app.route('/merge', methods=['POST'])
+    os.unlink(tmp_path)
+
+    flash(f"'{file.filename}' 업로드 완료")
+    return redirect(url_for("browse", folder_id=folder_id))
+
+@app.route("/create_folder", methods=["POST"])
+def create_folder():
+    parent_id = request.form.get("folder_id")
+    new_name = request.form.get("new_folder_name", "").strip()
+
+    if not new_name:
+        flash("폴더 이름을 입력하세요.")
+        return redirect(url_for("browse", folder_id=parent_id))
+
+    drive = get_drive()
+    folder_meta = {
+        'title': new_name,
+        'mimeType': 'application/vnd.google-apps.folder',
+        'parents': [{'id': parent_id}]
+    }
+    new_folder = drive.CreateFile(folder_meta)
+    new_folder.Upload()
+
+    flash(f"'{new_name}' 폴더 생성 완료")
+    return redirect(url_for("browse", folder_id=parent_id))
+
+@app.route("/merge", methods=["POST"])
 def merge():
-    folder = request.form.get('folder')
-    selected_files = request.form.getlist('files[]')
-    output_filename = request.form.get('output_filename', 'merged')
+    folder_id = request.form.get("folder_id")
+    selected_ids = request.form.getlist("file_ids")
+    output_name = request.form.get("output_name", "merged").strip()
 
-    if not output_filename.lower().endswith('.pdf'):
-        output_filename += '.pdf'
+    if not selected_ids:
+        flash("합칠 PDF 파일을 하나 이상 선택하세요.")
+        return redirect(url_for("browse", folder_id=folder_id))
 
-    if not selected_files:
-        return "파일을 하나 이상 선택하세요."
+    if not output_name:
+        output_name = "merged"
 
+    if not output_name.lower().endswith(".pdf"):
+        output_name += ".pdf"
+
+    drive = get_drive()
     merger = PdfMerger()
-    folder_path = os.path.join(DATA_FOLDER, folder)
 
-    for file in selected_files:
-        merger.append(os.path.join(folder_path, file))
+    # 선택된 각 파일을 임시파일로 저장 후 병합
+    temp_paths = []
+    try:
+        for fid in selected_ids:
+            f = drive.CreateFile({'id': fid})
+            # 각 파일을 개별 임시 파일로 저장
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+            tmp_path = tmp.name
+            tmp.close()
+            f.GetContentFile(tmp_path)
+            temp_paths.append(tmp_path)
+            merger.append(tmp_path)
 
-    merged_pdf = io.BytesIO()
-    merger.write(merged_pdf)
-    merger.close()
-    merged_pdf.seek(0)
+        # 병합 결과를 메모리에 저장
+        out_stream = io.BytesIO()
+        merger.write(out_stream)
+        merger.close()
+        out_stream.seek(0)
 
-    return send_file(
-        merged_pdf,
-        as_attachment=True,
-        download_name=output_filename,
-        mimetype='application/pdf'
-    )
+        # 병합된 파일을 구글 드라이브에 업로드
+        merged_file = drive.CreateFile({
+            'title': output_name,
+            'parents': [{'id': folder_id}]
+        })
 
-if __name__ == '__main__':
+        # 업로드용 임시파일 생성
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as merged_tmp:
+            merged_tmp.write(out_stream.getvalue())
+            merged_tmp_path = merged_tmp.name
+
+        merged_file.SetContentFile(merged_tmp_path)
+        merged_file.Upload()
+
+        os.unlink(merged_tmp_path)
+
+        flash(f"병합된 파일 '{output_name}' 이(가) 현재 폴더에 저장되었습니다.")
+
+        # 동시에 브라우저로도 다운로드 제공
+        out_stream.seek(0)
+        return send_file(
+            out_stream,
+            as_attachment=True,
+            download_name=output_name,
+            mimetype='application/pdf'
+        )
+
+    finally:
+        # 임시 파일들 정리
+        for p in temp_paths:
+            if os.path.exists(p):
+                os.unlink(p)
+
+if __name__ == "__main__":
+    # 로컬 테스트용
     app.run(debug=True)
